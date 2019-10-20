@@ -1,7 +1,10 @@
 package birdUp;
 
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -15,6 +18,10 @@ import discord4j.core.object.util.Snowflake;
 import reactor.core.publisher.Mono;
 
 public class BirdUpBot {
+
+	private static final String GUILD_TOGGLES_CSV = "guildToggles.csv";
+
+	private static final String GUILD_EMOJI_CSV = "guildEmoji.csv";
 
 	//main discord client
 	private static DiscordClient client;
@@ -50,15 +57,16 @@ public class BirdUpBot {
 
 	private void readConstantGuildsEmoji() {
 		try {
-			Scanner constants = new Scanner(new FileReader("guildEmoji.csv"));
+			Scanner constants = new Scanner(new FileReader(GUILD_EMOJI_CSV));
 			while (constants.hasNext()) {
 				String[] line = constants.nextLine().split(",");
 				
 				//expected format: name,guildID,emojiID
 				emojiMap.put(line[0], new Pair<Snowflake, Snowflake>(Snowflake.of(line[1]), Snowflake.of(line[2])));
 			}
+			constants.close();
 		} catch (FileNotFoundException e) {
-			System.err.println("Cannot read constants file \"guildEmoji.csv\"");
+			System.err.println("Cannot read constants file \"" + GUILD_EMOJI_CSV + "\"");
 			//exit if file cannot be read
 			System.exit(1);
 		} catch (ArrayIndexOutOfBoundsException e) {
@@ -72,14 +80,14 @@ public class BirdUpBot {
 	private void readGuildStatus() {
 		//load config csv
 		try {
-			Scanner guilds = new Scanner(new FileReader("guildToggles.csv"));
+			Scanner guilds = new Scanner(new FileReader(GUILD_TOGGLES_CSV));
 			while (guilds.hasNext()) {
 				String[] line = guilds.nextLine().split(",");
 				guildStatus.put(Snowflake.of(line[0]), line[1].equalsIgnoreCase("1"));
 			}
 			guilds.close();
 		} catch (FileNotFoundException e) {
-			System.err.println("Cannot read config file \"guildToggles.csv\"");
+			System.err.println("Cannot read config file \"" + GUILD_TOGGLES_CSV + "\"");
 			//exit if file cannot be read
 			System.exit(1);
 		} catch (ArrayIndexOutOfBoundsException e) {
@@ -96,5 +104,24 @@ public class BirdUpBot {
 		return Mono.justOrEmpty(readyEvent).flatMap(event -> event.getClient().updatePresence(presence));
 	}
 
-
+	public void exit() {
+		//write server states to file
+		try {
+			BufferedWriter guildStatusOut = new BufferedWriter(new FileWriter(GUILD_TOGGLES_CSV));
+			guildStatus.forEach((U, V) -> {
+				try {
+					guildStatusOut.write(U + "," + V);
+				} catch (IOException e) {
+					System.err.println("Error Saving guildToggles");
+				}
+			});
+			guildStatusOut.close();
+		} catch (IOException e) {
+			System.err.println("Error Saving guildToggles");
+		}
+		
+		//logout
+		client.logout().block();
+		System.exit(0);
+	}
 }
