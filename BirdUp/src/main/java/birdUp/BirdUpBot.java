@@ -20,7 +20,10 @@ public class BirdUpBot {
 	private static DiscordClient client;
 
 	//map of serverId to status
-	private static Map<Snowflake, Boolean> serverStatus;
+	private static Map<Snowflake, Boolean> guildStatus;
+
+	//map of emoji name to emoji ID
+	private static Map<String, Pair<Snowflake, Snowflake>> emojiMap;
 
 	public static void main(String[] args) {
 		//args[0] is the token provided by discord unique to the bot
@@ -35,17 +38,46 @@ public class BirdUpBot {
 
 	//make client from token
 	private BirdUpBot(String token) {
+		//initialize variables
 		client = new DiscordClientBuilder(token).build();
-		serverStatus = new HashMap<Snowflake, Boolean>();
+		guildStatus = new HashMap<Snowflake, Boolean>();
+		emojiMap = new HashMap<String, Pair<Snowflake,Snowflake>>();
 		
+		//read files
+		readGuildStatus();
+		readConstantGuildsEmoji();
+	}
+
+	private void readConstantGuildsEmoji() {
+		try {
+			Scanner constants = new Scanner(new FileReader("guildEmoji.csv"));
+			while (constants.hasNext()) {
+				String[] line = constants.nextLine().split(",");
+				
+				//expected format: name,guildID,emojiID
+				emojiMap.put(line[0], new Pair<Snowflake, Snowflake>(Snowflake.of(line[1]), Snowflake.of(line[2])));
+			}
+		} catch (FileNotFoundException e) {
+			System.err.println("Cannot read constants file \"guildEmoji.csv\"");
+			//exit if file cannot be read
+			System.exit(1);
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.err.println("guildEmoji csv format different than expected");
+			//exit if bad config format
+			System.exit(2);
+		}
+
+	}
+
+	private void readGuildStatus() {
 		//load config csv
 		try {
-			Scanner in = new Scanner(new FileReader("guildToggles.csv"));
-			while (in.hasNext()) {
-				String[] line = in.nextLine().split(",");
-				serverStatus.put(Snowflake.of(line[0]), line[1].equalsIgnoreCase("1"));
+			Scanner guilds = new Scanner(new FileReader("guildToggles.csv"));
+			while (guilds.hasNext()) {
+				String[] line = guilds.nextLine().split(",");
+				guildStatus.put(Snowflake.of(line[0]), line[1].equalsIgnoreCase("1"));
 			}
-			in.close();
+			guilds.close();
 		} catch (FileNotFoundException e) {
 			System.err.println("Cannot read config file \"guildToggles.csv\"");
 			//exit if file cannot be read
