@@ -15,6 +15,7 @@ import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.GuildEmoji;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.User;
 import discord4j.core.object.presence.Activity;
 import discord4j.core.object.presence.Presence;
 import discord4j.core.object.reaction.ReactionEmoji;
@@ -57,19 +58,48 @@ public class BirdUpBot {
 		client.login().block();
 	}
 
+	private Mono<Boolean> addGuildId(Snowflake guildId) {
+		if (guildStatus.containsKey(guildId)) {
+			return Mono.just(guildStatus.get(guildId));
+		}
+		else {
+			guildStatus.put(guildId, false);
+			return Mono.just(guildStatus.get(guildId));
+		}
+	}
+
+	private void addBirdUpReaction(Message message) {
+		//get birdUpEmoji
+		ReactionEmoji birdUpEmoji = ReactionEmoji.custom(client.getGuildEmojiById(emojiMap.get("birdup").first, emojiMap.get("birdup").second).block());
+
+		//add reaction
+		message.addReaction(birdUpEmoji).subscribe();
+	}
 
 	private void processMessage(MessageCreateEvent event) {
-		System.out.println();
+		User author = Mono.justOrEmpty(event.getMessage().getAuthor()).block();
+		if (author.getId().equals(client.getSelfId().orElse(Snowflake.of(-1)))) {
+			return;
+		}
+//		DEBUG
+//		System.out.println("Message Autor ID: " + author.getId().asString());
+//		System.out.println("Bot Cliend ID:    " + client.getSelfId().get().asString());
+
 		//check if message matches command in the map
 		Mono.justOrEmpty(event.getMessage().getContent()).flatMap(content -> Flux.fromIterable(commandMap.entrySet())
 				.filter(entry -> content.startsWith("!bird" + entry.getKey()) || content.startsWith("hey alfred, " + entry.getKey()))
 				.flatMap(entey -> entey.getValue().execute(event)).next()).subscribe();
 
-		//get birdUpEmoji
-		ReactionEmoji birdUpEmoji = ReactionEmoji.custom(client.getGuildEmojiById(emojiMap.get("birdup").first, emojiMap.get("birdup").second).block());
-
-		//check if message contains birdup
-		Mono.justOrEmpty(event.getMessage()).filter(message -> message.getContent().orElse("").toLowerCase().contains("birdup")).subscribe(message -> message.addReaction(birdUpEmoji).block());
+		//check if message guild is known, then check if all mode of the bot is enabled
+		Mono.justOrEmpty(event.getGuildId()).flatMap(guildId -> addGuildId(guildId)).subscribe(value -> {
+			if (value == true) {
+				Mono.justOrEmpty(event.getMessage()).subscribe(message -> addBirdUpReaction(message));
+			}
+			else {
+				//check if message contains birdup
+				Mono.justOrEmpty(event.getMessage()).filter(message -> message.getContent().orElse("").toLowerCase().contains("birdup")).subscribe(message -> addBirdUpReaction(message));
+			}
+		});	
 	}
 
 	//event.getMessage().addReaction(client.getGuildEmojiById(emojiMap.get("birdup").first, emojiMap.get("birdup").second));
@@ -96,7 +126,7 @@ public class BirdUpBot {
 		commandMap.put("raid", event -> Destiny.executeRaid(event).then());
 		commandMap.put("kitty", event -> Kitty.execute(event).then());
 		commandMap.put("off", event -> Control.executeOff(event).then());
-		commandMap.put("all", event -> Control.executeAll(event).then());
+		commandMap.put("all", event -> Control.executeOn(event).then());
 		commandMap.put("up", event -> Control.executeOn(event).then());
 		commandMap.put("shutdown", event -> Control.executeShutDown(event).then());
 		commandMap.put("status", event -> Control.executeStatus(event).then());
@@ -138,7 +168,7 @@ public class BirdUpBot {
 			Scanner guilds = new Scanner(new FileReader(GUILD_TOGGLES_CSV));
 			while (guilds.hasNext()) {
 				String[] line = guilds.nextLine().split(",");
-				guildStatus.put(Snowflake.of(line[0]), line[1].equalsIgnoreCase("1"));
+				guildStatus.put(Snowflake.of(line[0]), line[1].equalsIgnoreCase("true"));
 			}
 			guilds.close();
 		} catch (FileNotFoundException e) {
@@ -159,13 +189,13 @@ public class BirdUpBot {
 		return Mono.justOrEmpty(readyEvent).flatMap(event -> event.getClient().updatePresence(presence));
 	}
 
-	public void exit() {
+	public static void exit() {
 		//write server states to file
 		try {
 			BufferedWriter guildStatusOut = new BufferedWriter(new FileWriter(GUILD_TOGGLES_CSV));
 			guildStatus.forEach((U, V) -> {
 				try {
-					guildStatusOut.write(U + "," + V);
+					guildStatusOut.write(U.asLong() + "," + V + System.lineSeparator());
 				} catch (IOException e) {
 					System.err.println("Error Saving guildToggles");
 				}
