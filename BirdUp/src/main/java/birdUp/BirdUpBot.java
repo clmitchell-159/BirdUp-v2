@@ -218,4 +218,12 @@ public class BirdUpBot {
 	public static void setGuildStatus(Map<Snowflake, Boolean> guildStatus) {
 		BirdUpBot.guildStatus = guildStatus;
 	}
+
+	public static DiscordClient getClient() {
+		return client;
+	}
+
+	public static Map<String, Pair<Snowflake, Snowflake>> getEmojiMap() {
+		return emojiMap;
+	}
 }
