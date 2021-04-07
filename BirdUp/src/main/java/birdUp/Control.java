@@ -3,12 +3,15 @@ package birdUp;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Enumeration;
 
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.User;
 import discord4j.core.object.reaction.ReactionEmoji;
-import discord4j.core.object.util.Snowflake;
+import discord4j.common.util.Snowflake;
 import reactor.core.publisher.Mono;
 
 // deals with controling the bot - on, off, help, etc
@@ -80,8 +83,31 @@ public class Control {
 	}
 
 	static public Mono<Void> executeHelp(MessageCreateEvent event) {
-		// TODO Auto-generated method stub
-		return event.getMessage().getChannel().flatMap(channel -> channel.createMessage("Still to do")).then();
+		return event.getMessage().getChannel().flatMap(channel -> channel.createMessage(
+			"Welcome to Bird Help!\n" +
+			"\n" +
+			"Commands:\n" +
+			"!birdraid for raid setup\n" +
+			"!birdhelp for this menu\n"
+			)).then();
+	}
+	
+	static public Mono<Void> executeTime(MessageCreateEvent event) {
+		LocalDateTime utc = LocalDateTime.now(ZoneId.of("Z"));
+		LocalDateTime est = utc.minusHours(5);
+		LocalDateTime cst = utc.minusHours(6);
+		LocalDateTime mst = utc.minusHours(7);
+		LocalDateTime pst = utc.minusHours(8);
+		DateTimeFormatter format = DateTimeFormatter.ofPattern("LLL dd, hh:mm a");
+		
+		return event.getMessage().getChannel().flatMap(channel -> channel.createMessage(
+			"Current Time:\n```" +
+			utc.format(format) + " UTC\n" +
+			est.format(format) + " EST\n" +
+			cst.format(format) + " CST\n" +
+			mst.format(format) + " MST\n" +
+			pst.format(format) + " PST\n```"
+		)).then();
 	}
 }
 

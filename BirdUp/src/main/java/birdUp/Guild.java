@@ -10,20 +10,4 @@ public class Guild {
 		// TODO Auto-generated method stub
 		return null;
 	}
-	
-	static public Mono<Void> executeEmojiUpload(MessageCreateEvent event) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	static public Mono<Void> executeJail(MessageCreateEvent event) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
-	static public Mono<Void> executeClown(MessageCreateEvent event) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
 }
